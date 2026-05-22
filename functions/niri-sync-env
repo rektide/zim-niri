@@ -1,8 +1,22 @@
 # Upsert whitelisted vars into systemd user environment (only changes differing values).
+# Skips entirely when a hash of current values matches the last import.
 # Customize in zimrc before loading the module:
 #   zstyle ':zim:niri' systemd-env-vars NIRI_SOCKET WAYLAND_DISPLAY DISPLAY
 local -a vars
 zstyle -a ':zim:niri' systemd-env-vars vars || vars=(NIRI_SOCKET WAYLAND_DISPLAY)
+
+local current_hash=
+local val
+for var in $vars; do
+  val=${(P)var:-}
+  current_hash+=${#val}:${val},
+done
+current_hash=$(printf '%s' "$current_hash" | command md5sum | command cut -d' ' -f1)
+
+local cache_file=${XDG_RUNTIME_DIR:-/run/user/${UID}}/zim-niri-sync-env.hash
+if [[ -r $cache_file ]] && read -r cached_hash < $cache_file && [[ $cached_hash == $current_hash ]]; then
+  return
+fi
 
 local -A sd_env
 local line k v
@@ -17,3 +31,4 @@ for var in $vars; do
 done
 
 (( $#changed )) && systemctl --user import-environment ${(@)changed}
+printf '%s' "$current_hash" >| $cache_file
