@@ -1,0 +1,12 @@
+# Whitelist vars to push into systemd user environment.
+# Customize in zimrc before loading the module:
+#   zstyle ':zim:niri' systemd-env-vars NIRI_SOCKET WAYLAND_DISPLAY DISPLAY
+local -a vars
+zstyle -a ':zim:niri' systemd-env-vars vars || vars=(NIRI_SOCKET WAYLAND_DISPLAY)
+
+local -a set_vars
+for var in $vars; do
+  (( ${(P)+var} )) && set_vars+=$var
+done
+
+(( $#set_vars )) && systemctl --user import-environment ${(@)set_vars}
